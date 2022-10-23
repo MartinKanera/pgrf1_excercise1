@@ -2,12 +2,16 @@ package raster;
 
 import model.Point;
 
+/**
+ * Bresenhamův algoritmus
+ * Největší výhodou je absence plovoucí řádové čárky, diky čemuž je algoritmus méně náročný a rychlejší.
+ * Algoritmus funguje pomocí chybového prediktoru, který určuje, zdali dochází ke změně pozice na sekundární ose.
+ */
+
 public class FilledLineRasterizer extends LineRasterizer {
     public FilledLineRasterizer(RasterBufferedImage raster) {
         super(raster);
     }
-
-    // TODO Describe algorithm
 
     private void lineLow(int x1, int y1, int x2, int y2) {
         int dx = x2 - x1;

@@ -1,3 +1,4 @@
+import Helpers.SizeValidator;
 import model.Line;
 import model.Point;
 import model.Polygon;
@@ -25,6 +26,7 @@ public class Canvas {
     private final PolygonRasterizer polygonRasterizer;
     private final JTextField text;
     private final Triangle triangle;
+    private final SizeValidator sizeValidator;
 
     public Canvas(int width, int height) {
         JFrame frame = new JFrame();
@@ -34,6 +36,7 @@ public class Canvas {
         lines = new ArrayList<>();
         polygon = new Polygon();
         polygonRasterizer = new PolygonRasterizer(lineRasterizer);
+        sizeValidator = new SizeValidator(width, height);
         triangle = new Triangle();
 
         frame.setLayout(new BorderLayout());
@@ -142,20 +145,6 @@ public class Canvas {
         panel.repaint();
     }
 
-    private Point validateEventCoordinates(MouseEvent e) {
-        int x = e.getX();
-        int y = e.getY();
-        int width = raster.getImg().getWidth();
-        int height = raster.getImg().getHeight();
-
-        if (x < 0) x = 0;
-        if (x >= width - 1) x = width - 1;
-        if (y < 0) y = 0;
-        if (y >= height - 1) y = height - 1;
-
-        return new Point(x, y);
-    }
-
     // -- Line handlers
 
     private void handleLineMouseDragged(MouseEvent e) {
@@ -165,7 +154,7 @@ public class Canvas {
 
         rerenderLines();
 
-        Point currentPoint = validateEventCoordinates(e);
+        Point currentPoint = sizeValidator.validateEventCoordinates(e);
         Line line = new Line(startPoint, currentPoint);
         dottedLineRasterizer.rasterize(line);
         panel.repaint();
@@ -174,7 +163,7 @@ public class Canvas {
     private void handleLineMouseReleased(MouseEvent e) {
         if (startPoint == null) return;
 
-        lines.add(new Line(startPoint, validateEventCoordinates(e)));
+        lines.add(new Line(startPoint, sizeValidator.validateEventCoordinates(e)));
         rerenderLines();
         startPoint = null;
     }
@@ -182,7 +171,7 @@ public class Canvas {
     // -- Polygon handlers
 
     private void handlePolygonMouseClick(MouseEvent e) {
-        polygon.addPoint(validateEventCoordinates(e));
+        polygon.addPoint(sizeValidator.validateEventCoordinates(e));
         polygonRasterizer.rasterize(polygon);
         rerenderPolygon();
     }
@@ -195,7 +184,7 @@ public class Canvas {
             polygon.addPoint(new Point(e.getX(), e.getY()));
         }
 
-        Point currentPoint = validateEventCoordinates(e);
+        Point currentPoint = sizeValidator.validateEventCoordinates(e);
         polygon.removeLastPoint();
         polygon.addPoint(currentPoint);
 
@@ -206,7 +195,7 @@ public class Canvas {
     private void handlePolygonMouseReleased(MouseEvent e) {
         if (polygon.getCount() < 1) return;
 
-        polygon.addPoint(validateEventCoordinates(e));
+        polygon.addPoint(sizeValidator.validateEventCoordinates(e));
         rerenderPolygon();
     }
 
@@ -215,7 +204,7 @@ public class Canvas {
     private void handleTriangleMouseClick(MouseEvent e) {
         if (triangle.getCount() >= 2) triangle.clearPoints();
 
-        triangle.addPoint(validateEventCoordinates(e));
+        triangle.addPoint(sizeValidator.validateEventCoordinates(e));
         polygonRasterizer.rasterize(triangle);
         rerenderTriangle();
     }
@@ -223,7 +212,9 @@ public class Canvas {
     private void handleTriangleMouseDragged(MouseEvent e) {
         if (triangle.getCount() < 2) return;
 
-        triangle.calculateAndSetTop(e.getY());
+        Point topPoint = sizeValidator.validateEventCoordinates(e);
+
+        triangle.calculateAndSetTop(topPoint.getY());
         polygonRasterizer.rasterize(triangle);
         rerenderTriangle();
     }
