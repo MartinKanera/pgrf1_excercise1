@@ -2,10 +2,12 @@ package raster;
 
 import model.Point;
 
-public class BresenhamLineRasterizer extends LineRasterizer {
-    public BresenhamLineRasterizer(RasterBufferedImage raster) {
+public class FilledLineRasterizer extends LineRasterizer {
+    public FilledLineRasterizer(RasterBufferedImage raster) {
         super(raster);
     }
+
+    // TODO Describe algorithm
 
     private void lineLow(int x1, int y1, int x2, int y2) {
         int dx = x2 - x1;
