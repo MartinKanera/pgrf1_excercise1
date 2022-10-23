@@ -5,7 +5,7 @@ import model.Point;
 import model.Polygon;
 
 public class PolygonRasterizer {
-    private final LineRasterizer lineRasterizer;
+    protected final LineRasterizer lineRasterizer;
 
     public PolygonRasterizer(LineRasterizer lineRasterizer) {
         this.lineRasterizer = lineRasterizer;

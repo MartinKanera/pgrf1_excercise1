@@ -7,8 +7,6 @@ public class DottedLineRasterizer extends LineRasterizer {
         super(raster);
     }
 
-    // TODO Describe algorithm
-
     private void lineLow(int x1, int y1, int x2, int y2) {
         int dx = x2 - x1;
         int dy = y2 - y1;
