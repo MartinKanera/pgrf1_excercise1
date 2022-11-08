@@ -1,4 +1,6 @@
 import Helpers.SizeValidator;
+import filler.Filler;
+import filler.SeedFiller;
 import model.Line;
 import model.Point;
 import model.Polygon;
@@ -57,7 +59,7 @@ public class Canvas {
         text = new JTextField();
         text.setHorizontalAlignment(JTextField.CENTER);
         frame.add(text, BorderLayout.SOUTH);
-        changeMode(Mode.LINE);
+        changeMode(Mode.POLYGON);
 
         frame.pack();
         frame.setVisible(true);
@@ -171,6 +173,15 @@ public class Canvas {
     // -- Polygon handlers
 
     private void handlePolygonMouseClick(MouseEvent e) {
+        if (e.getButton() == MouseEvent.BUTTON3) {
+            Point currentPoint = new Point(e.getX(), e.getY());
+            Filler filler = new SeedFiller(currentPoint, Color.black.getRGB(), Color.WHITE.getRGB(), raster);
+            filler.fill();
+            panel.repaint();
+
+            return;
+        }
+
         polygon.addPoint(sizeValidator.validateEventCoordinates(e));
         polygonRasterizer.rasterize(polygon);
         rerenderPolygon();
@@ -193,7 +204,7 @@ public class Canvas {
     }
 
     private void handlePolygonMouseReleased(MouseEvent e) {
-        if (polygon.getCount() < 1) return;
+        if (polygon.getCount() < 1 || !SwingUtilities.isLeftMouseButton(e)) return;
 
         polygon.addPoint(sizeValidator.validateEventCoordinates(e));
         rerenderPolygon();
