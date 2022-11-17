@@ -14,7 +14,7 @@ public class Canvas {
         raster = new RasterBufferedImage(width, height);
 
         frame.setLayout(new BorderLayout());
-        frame.setTitle("Úloha 1");
+        frame.setTitle("Úloha 2");
         frame.setResizable(false);
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 
@@ -25,12 +25,25 @@ public class Canvas {
                 g.drawImage(raster.getImg(), 0, 0, null);
             }
         };
-        panel.setPreferredSize(new Dimension(width, height));
+        panel.setPreferredSize(new Dimension(width, 500));
         frame.add(panel, BorderLayout.CENTER);
 
-        JTextField text = new JTextField();
-        text.setHorizontalAlignment(JTextField.CENTER);
-        frame.add(text, BorderLayout.SOUTH);
+        JPanel textPanel = new JPanel();
+        textPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 50, 0));
+        textPanel.setBackground(Color.white);
+        frame.add(textPanel, BorderLayout.SOUTH);
+
+        JTextField drawModeText = new JTextField();
+        drawModeText.setHorizontalAlignment(JTextField.CENTER);
+        drawModeText.setBorder(javax.swing.BorderFactory.createEmptyBorder());
+        drawModeText.setPreferredSize(new Dimension(75, 20));
+        textPanel.add(drawModeText);
+
+        JTextField fillModeText = new JTextField();
+        fillModeText.setHorizontalAlignment(JTextField.CENTER);
+        fillModeText.setBorder(javax.swing.BorderFactory.createEmptyBorder());
+        fillModeText.setPreferredSize(new Dimension(150, 20));
+        textPanel.add(fillModeText);
 
         frame.pack();
         frame.setVisible(true);
@@ -38,6 +51,6 @@ public class Canvas {
         panel.requestFocus();
         panel.requestFocusInWindow();
 
-        new Controller(panel, raster, text);
+        new Controller(panel, raster, drawModeText, fillModeText);
     }
 }

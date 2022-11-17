@@ -2,9 +2,19 @@ package raster;
 
 import model.Point;
 
-public class DottedLineRasterizer extends LineRasterizer {
-    public DottedLineRasterizer(RasterBufferedImage raster) {
+/**
+ * Bresenhamův algoritmus
+ * Největší výhodou je absence plovoucí řádové čárky, diky čemuž je algoritmus méně náročný a rychlejší.
+ * Algoritmus funguje pomocí chybového prediktoru, který určuje, zdali dochází ke změně pozice na sekundární ose.
+ */
+
+public class BresenhamFilledLineRasterizer extends LineRasterizer {
+    public BresenhamFilledLineRasterizer(RasterBufferedImage raster) {
         super(raster);
+    }
+
+    public BresenhamFilledLineRasterizer(RasterBufferedImage raster, int color) {
+        super(raster, color);
     }
 
     private void lineLow(int x1, int y1, int x2, int y2) {
@@ -19,10 +29,10 @@ public class DottedLineRasterizer extends LineRasterizer {
         int y = y1;
 
 
-        for (int x = x1; x < x2; x += 2) {
+        for (int x = x1; x < x2; x++) {
             raster.setPixel(x, y, color);
             if (p > 0) {
-                y = y + 2 * yi;
+                y = y + yi;
                 p += 2 * (dy - dx);
             } else {
                 p += 2 * dy;
@@ -42,10 +52,10 @@ public class DottedLineRasterizer extends LineRasterizer {
         int x = x1;
 
 
-        for (int y = y1; y < y2; y += 2) {
+        for (int y = y1; y < y2; y++) {
             raster.setPixel(x, y, color);
             if (p > 0) {
-                x = x + 2 * xi;
+                x = x + xi;
                 p += 2 * (dx - dy);
             } else {
                 p += 2 * dx;

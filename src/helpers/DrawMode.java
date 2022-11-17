@@ -1,16 +1,17 @@
-package model;
-public enum Mode {
+package helpers;
+
+public enum DrawMode {
     LINE,
     POLYGON,
     TRIANGLE;
 
-    static private final Mode[] values = values();
+    static private final DrawMode[] values = values();
 
-    public Mode previous() {
+    public DrawMode previous() {
         return values[(ordinal() - 1 + values.length) % values.length];
     }
 
-    public Mode next() {
+    public DrawMode next() {
         return values[(ordinal() + 1 + values.length) % values.length];
     }
 }

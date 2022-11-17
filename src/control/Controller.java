@@ -1,12 +1,17 @@
 package control;
 
 import filler.Filler;
+import filler.ScanLineFiller;
 import filler.SeedFiller;
+import filler.SeedFillerBackground;
+import helpers.FillMode;
 import helpers.SizeValidator;
 import model.*;
 import model.Point;
 import model.Polygon;
 import raster.*;
+import clipper.PolygonClipper;
+import helpers.DrawMode;
 
 import javax.swing.*;
 import java.awt.*;
@@ -18,40 +23,50 @@ import java.util.ArrayList;
 
 public class Controller {
     private final JPanel panel;
-    private Mode currentMode;
-    private final Raster raster;
-    private final JTextField modeTextField;
+    private DrawMode drawMode;
+    private FillMode fillMode;
+    private final RasterBufferedImage raster;
+    private final JTextField drawModeTextField;
+    private final JTextField fillModeTextField;
     private final LineRasterizer lineRasterizer;
     private final LineRasterizer dottedLineRasterizer;
     private final ArrayList<Line> lines;
     private Point startPoint;
-    private final Polygon polygon;
+    private Polygon polygon;
     private final PolygonRasterizer polygonRasterizer;
     private final Triangle triangle;
     private final SizeValidator sizeValidator;
+    private final Polygon clipPolygon;
+    private final PolygonRasterizer clipPolygonRasterizer;
+    private final int defaultColor = Color.white.getRGB();
+    private final int clipPolygonColor = Color.blue.getRGB();
 
-    public Controller(JPanel panel, RasterBufferedImage raster, JTextField modeTextField) {
+    public Controller(JPanel panel, RasterBufferedImage raster, JTextField drawModeTextField, JTextField fillModeTextField) {
         this.panel = panel;
         this.raster = raster;
-        this.modeTextField = modeTextField;
+        this.drawModeTextField = drawModeTextField;
+        this.fillModeTextField = fillModeTextField;
         initListeners();
 
         lineRasterizer = new FilledLineRasterizer(raster);
         dottedLineRasterizer = new DottedLineRasterizer(raster);
         lines = new ArrayList<>();
-        polygon = new Polygon();
         polygonRasterizer = new PolygonRasterizer(lineRasterizer);
         sizeValidator = new SizeValidator(raster.getWidth(), raster.getHeight());
         triangle = new Triangle();
+        polygon = new Polygon();
+        clipPolygon = new Polygon();
+        clipPolygonRasterizer = new PolygonRasterizer(new FilledLineRasterizer(raster, clipPolygonColor));
 
-        changeMode(Mode.POLYGON);
+        changeDrawMode(DrawMode.POLYGON);
+        changeFillMode(FillMode.BACKGROUND_SEED_FILL);
     }
 
     private void initListeners() {
         panel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                switch (currentMode) {
+                switch (drawMode) {
                     case POLYGON -> handlePolygonMouseClick(e);
                     case TRIANGLE -> handleTriangleMouseClick(e);
                 }
@@ -59,7 +74,7 @@ public class Controller {
 
             @Override
             public void mouseReleased(MouseEvent e) {
-                switch (currentMode) {
+                switch (drawMode) {
                     case LINE -> handleLineMouseReleased(e);
                     case POLYGON -> handlePolygonMouseReleased(e);
                 }
@@ -69,7 +84,7 @@ public class Controller {
         panel.addMouseMotionListener(new MouseAdapter() {
             @Override
             public void mouseDragged(MouseEvent e) {
-                switch (currentMode) {
+                switch (drawMode) {
                     case POLYGON -> handlePolygonMouseDragged(e);
                     case LINE -> handleLineMouseDragged(e);
                     case TRIANGLE -> handleTriangleMouseDragged(e);
@@ -82,23 +97,32 @@ public class Controller {
             public void keyPressed(KeyEvent e) {
                 switch (e.getKeyCode()) {
                     case KeyEvent.VK_C -> clearAll();
-                    case KeyEvent.VK_RIGHT -> changeMode(currentMode.next());
-                    case KeyEvent.VK_LEFT -> changeMode(currentMode.previous());
-                    case KeyEvent.VK_T -> changeMode(Mode.TRIANGLE);
+                    case KeyEvent.VK_RIGHT -> changeDrawMode(drawMode.next());
+                    case KeyEvent.VK_LEFT -> changeDrawMode(drawMode.previous());
+                    case KeyEvent.VK_T -> changeDrawMode(DrawMode.TRIANGLE);
+                    case KeyEvent.VK_ENTER -> clip();
+                    case KeyEvent.VK_UP -> changeFillMode(fillMode.next());
+                    case KeyEvent.VK_DOWN -> changeFillMode(fillMode.previous());
                 }
             }
         });
     }
 
-    private void changeMode(Mode mode) {
-        modeTextField.setText(mode.toString().toLowerCase());
-        currentMode = mode;
+    private void changeDrawMode(DrawMode mode) {
+        drawModeTextField.setText(mode.toString().toLowerCase());
+        drawMode = mode;
 
         switch (mode) {
             case LINE -> rerenderLines();
-            case POLYGON -> rerenderPolygon();
+            case POLYGON -> rerenderPolygons();
             case TRIANGLE -> rerenderTriangle();
         }
+        drawModeTextField.repaint();
+    }
+
+    private void changeFillMode(FillMode mode) {
+        fillModeTextField.setText(mode.toString());
+        fillMode = mode;
     }
 
     private void rerenderLines() {
@@ -107,8 +131,9 @@ public class Controller {
         panel.repaint();
     }
 
-    private void rerenderPolygon() {
+    private void rerenderPolygons() {
         raster.clear();
+        clipPolygonRasterizer.rasterize(clipPolygon);
         polygonRasterizer.rasterize(polygon);
         panel.repaint();
     }
@@ -123,6 +148,7 @@ public class Controller {
         startPoint = null;
         lines.clear();
         polygon.clearPoints();
+        clipPolygon.clearPoints();
         triangle.clearPoints();
         raster.clear();
         panel.repaint();
@@ -154,41 +180,87 @@ public class Controller {
     // -- Polygon handlers
 
     private void handlePolygonMouseClick(MouseEvent e) {
-        if (e.isControlDown() && SwingUtilities.isLeftMouseButton(e)) {
+        if (e.isControlDown() && !SwingUtilities.isMiddleMouseButton(e)) {
             Point currentPoint = new Point(e.getX(), e.getY());
-            Filler filler = new SeedFiller(currentPoint, Color.black.getRGB(), Color.WHITE.getRGB(), raster);
+            Filler filler;
+
+            if (fillMode == FillMode.BACKGROUND_SEED_FILL) {
+                filler = new SeedFillerBackground(currentPoint, raster, Color.green.getRGB(), Color.black.getRGB(), sizeValidator);
+            } else {
+                boolean useClipPolygonColor = SwingUtilities.isRightMouseButton(e);
+                // boundaries checking color
+                int lineColor = useClipPolygonColor ? clipPolygonColor : defaultColor;
+                filler = new SeedFiller(currentPoint, raster, lineColor, Color.green.getRGB(), sizeValidator);
+            }
+
             filler.fill();
             panel.repaint();
-
             return;
         }
 
-        polygon.addPoint(sizeValidator.validateEventCoordinates(e));
-        polygonRasterizer.rasterize(polygon);
-        rerenderPolygon();
+        if (SwingUtilities.isLeftMouseButton(e)) {
+            polygon.addPoint(sizeValidator.validateEventCoordinates(e));
+        } else if (SwingUtilities.isRightMouseButton(e)) {
+            clipPolygon.addPoint(sizeValidator.validateEventCoordinates(e));
+        }
+
+        rerenderPolygons();
     }
 
     private void handlePolygonMouseDragged(MouseEvent e) {
-        if (polygon.getCount() < 2) return;
+        boolean isClipPolygon = SwingUtilities.isRightMouseButton(e);
 
-        if (startPoint == null && polygon.getCount() == 0) {
+        if ((polygon.getCount() < 2 && !isClipPolygon) || (clipPolygon.getCount() < 2 && isClipPolygon)) return;
+
+        if (startPoint == null) {
             startPoint = new Point(e.getX(), e.getY());
-            polygon.addPoint(new Point(e.getX(), e.getY()));
+
+            if (!isClipPolygon) {
+                polygon.addPoint(new Point(e.getX(), e.getY()));
+            } else {
+                clipPolygon.addPoint(new Point(e.getX(), e.getY()));
+            }
         }
 
         Point currentPoint = sizeValidator.validateEventCoordinates(e);
-        polygon.removeLastPoint();
-        polygon.addPoint(currentPoint);
 
-        polygonRasterizer.rasterize(polygon);
-        rerenderPolygon();
+        if (isClipPolygon) {
+            clipPolygon.removeLastPoint();
+            clipPolygon.addPoint(currentPoint);
+
+            clipPolygonRasterizer.rasterize(clipPolygon);
+        } else {
+            polygon.removeLastPoint();
+            polygon.addPoint(currentPoint);
+
+            polygonRasterizer.rasterize(polygon);
+        }
+
+
+        rerenderPolygons();
     }
 
     private void handlePolygonMouseReleased(MouseEvent e) {
         if (polygon.getCount() < 1 || e.isControlDown()) return;
 
-        polygon.addPoint(sizeValidator.validateEventCoordinates(e));
-        rerenderPolygon();
+        if (SwingUtilities.isLeftMouseButton(e)) {
+            polygon.addPoint(sizeValidator.validateEventCoordinates(e));
+        } else if (SwingUtilities.isRightMouseButton(e)) {
+            clipPolygon.addPoint(sizeValidator.validateEventCoordinates(e));
+        }
+        rerenderPolygons();
+    }
+
+    private void clip() {
+        polygon = PolygonClipper.clip(polygon, clipPolygon);
+
+        rerenderPolygons();
+
+        LineRasterizer scanLineRasterizer = new FilledLineRasterizer(raster, Color.pink.getRGB());
+        PolygonRasterizer scanLinePolygonRasterizer = new PolygonRasterizer(new FilledLineRasterizer(raster, Color.red.getRGB()));
+
+        ScanLineFiller scanLineFiller = new ScanLineFiller(scanLineRasterizer, scanLinePolygonRasterizer, polygon);
+        scanLineFiller.fill();
     }
 
     // -- Triangle handlers
